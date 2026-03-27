@@ -1,0 +1,5 @@
+{
+  "name": "BitNode Mobile",
+  "description": "A mobile-optimized Bitcoin node dashboard and configuration tool. Supports switching between pruned and full node modes with real-time status monitoring.",
+  "requestFramePermissions": []
+}
