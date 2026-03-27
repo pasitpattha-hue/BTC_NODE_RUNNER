@@ -19,7 +19,11 @@ import {
   Terminal,
   Lock,
   Wifi,
-  AlertCircle
+  AlertCircle,
+  WifiOff,
+  Smartphone,
+  Globe,
+  Heart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -75,9 +79,53 @@ export default function App() {
   });
   const [logs, setLogs] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'status' | 'config' | 'logs'>('status');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [connectionType, setConnectionType] = useState<string>('unknown');
+  const [runInBackground, setRunInBackground] = useState(true);
+  const [torEnabled, setTorEnabled] = useState(false);
+  const [kindnessMode, setKindnessMode] = useState(true);
+
+  // Connection monitoring
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setLogs(prev => [`[${new Date().toLocaleTimeString()}] Connection restored. Resuming sync...`, ...prev]);
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      setLogs(prev => [`[${new Date().toLocaleTimeString()}] Connection lost. Syncing paused.`, ...prev]);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Network Information API
+    const navConn = (navigator as any).connection;
+    if (navConn) {
+      setConnectionType(navConn.effectiveType || navConn.type || 'unknown');
+      const updateConn = () => setConnectionType(navConn.effectiveType || navConn.type || 'unknown');
+      navConn.addEventListener('change', updateConn);
+      return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+        navConn.removeEventListener('change', updateConn);
+      };
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Simulate live updates
   useEffect(() => {
+    if (!isOnline) {
+      setIsSyncing(false);
+      return;
+    }
+    
+    setIsSyncing(true);
     const interval = setInterval(() => {
       setStats(prev => ({
         ...prev,
@@ -139,6 +187,21 @@ export default function App() {
           <RefreshCw size={20} className={isSyncing ? 'animate-spin text-[#F7931A]' : 'text-[#8E9299]'} />
         </button>
       </header>
+
+      {/* Connection Banner */}
+      <AnimatePresence>
+        {!isOnline && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="bg-red-500/20 border-b border-red-500/30 px-6 py-2 flex items-center gap-2 overflow-hidden"
+          >
+            <WifiOff size={14} className="text-red-500" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-red-200">Offline: Syncing Paused</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto px-6 pb-24">
@@ -300,7 +363,52 @@ export default function App() {
               </div>
 
               <div className="space-y-4 pt-4">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] text-[#8E9299] font-bold px-1">Network Settings</h3>
+                <h3 className="text-[10px] uppercase tracking-[0.2em] text-[#8E9299] font-bold px-1">Network & Persistence</h3>
+                <div className="bg-[#151619] rounded-2xl border border-white/5 divide-y divide-white/5">
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Wifi size={16} className={isOnline ? "text-green-500" : "text-red-500"} />
+                      <div>
+                        <div className="text-sm font-medium">Connection Status</div>
+                        <div className="text-[10px] text-[#8E9299] uppercase font-mono">{isOnline ? `Connected (${connectionType})` : 'Disconnected'}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Activity size={16} className="text-[#8E9299]" />
+                      <div>
+                        <div className="text-sm font-medium">Run in Background</div>
+                        <div className="text-[10px] text-[#8E9299]">Keep node active when app is minimized</div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setRunInBackground(!runInBackground)}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${runInBackground ? 'bg-[#F7931A]' : 'bg-white/10'}`}
+                    >
+                      <motion.div 
+                        animate={{ x: runInBackground ? 22 : 4 }}
+                        className="absolute top-1 w-3 h-3 bg-white rounded-full" 
+                      />
+                    </button>
+                  </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <RefreshCw size={16} className="text-[#8E9299]" />
+                      <div>
+                        <div className="text-sm font-medium">Auto-Reconnect</div>
+                        <div className="text-[10px] text-[#8E9299]">Retry connection every 30s when offline</div>
+                      </div>
+                    </div>
+                    <div className="w-10 h-5 bg-[#F7931A] rounded-full relative">
+                      <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <h3 className="text-[10px] uppercase tracking-[0.2em] text-[#8E9299] font-bold px-1">Security Settings</h3>
                 <div className="bg-[#151619] rounded-2xl border border-white/5 divide-y divide-white/5">
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -313,12 +421,42 @@ export default function App() {
                   </div>
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Lock size={16} className="text-[#8E9299]" />
-                      <span className="text-sm font-medium">Tor Network (Onion)</span>
+                      <Lock size={16} className={torEnabled ? "text-[#F7931A]" : "text-[#8E9299]"} />
+                      <div>
+                        <div className="text-sm font-medium">Tor Network (Onion)</div>
+                        <div className="text-[10px] text-[#8E9299]">Route traffic through Tor for privacy</div>
+                      </div>
                     </div>
-                    <div className="w-10 h-5 bg-white/10 rounded-full relative">
-                      <div className="absolute left-1 top-1 w-3 h-3 bg-white/40 rounded-full" />
+                    <button 
+                      onClick={() => {
+                        setTorEnabled(!torEnabled);
+                        setLogs(prev => [`[${new Date().toLocaleTimeString()}] Tor Network ${!torEnabled ? 'Enabled' : 'Disabled'}. Restarting proxy...`, ...prev]);
+                      }}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${torEnabled ? 'bg-[#F7931A]' : 'bg-white/10'}`}
+                    >
+                      <motion.div 
+                        animate={{ x: torEnabled ? 22 : 4 }}
+                        className="absolute top-1 w-3 h-3 bg-white rounded-full" 
+                      />
+                    </button>
+                  </div>
+                  <div className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Heart size={16} className={kindnessMode ? "text-pink-500" : "text-[#8E9299]"} />
+                      <div>
+                        <div className="text-sm font-medium">Kindness Mode</div>
+                        <div className="text-[10px] text-[#8E9299]">Auto-share blocks with low-bandwidth peers</div>
+                      </div>
                     </div>
+                    <button 
+                      onClick={() => setKindnessMode(!kindnessMode)}
+                      className={`w-10 h-5 rounded-full relative transition-colors ${kindnessMode ? 'bg-pink-500' : 'bg-white/10'}`}
+                    >
+                      <motion.div 
+                        animate={{ x: kindnessMode ? 22 : 4 }}
+                        className="absolute top-1 w-3 h-3 bg-white rounded-full" 
+                      />
+                    </button>
                   </div>
                 </div>
               </div>
